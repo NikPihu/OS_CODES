@@ -99,3 +99,79 @@ int main() {
   | write with all readers closed | SIGPIPE / error EPIPE |
   | Writes ≤ PIPE_BUF (4096 bytes) | atomic (not mixed with other writes) |
 ==========================================================*/
+
+
+/*==========================================================
+  FUNCTIONS & SYSTEM CALLS - ASSIGNMENT 7
+============================================================
+  | Function | Header | Prototype | Returns | Used for |
+  |---|---|---|---|---|
+  | pipe | <unistd.h> | int pipe(int fd[2]); | 0 / −1 | Create a pipe; fills fd[0] (read), fd[1] (write) |
+  | fork | <unistd.h> | pid_t fork(void); | child PID / 0 / −1 | Create the child that inherits the pipes |
+  | close | <unistd.h> | int close(int fd); | 0 | Close unused ends |
+  | write | <unistd.h> | ssize_t write(int fd, const void *buf, size_t n); | bytes | Send through pipe |
+  | read | <unistd.h> | ssize_t read(int fd, void *buf, size_t n); | bytes / 0 at EOF | Receive (blocks until data) |
+  | wait | <sys/wait.h> | pid_t wait(int *st); | child PID | Parent reaps child |
+  | fopen / fread / fclose | <stdio.h> | — | — | Child reads the requested file |
+  | strlen / strcpy | <string.h> | — | — | Lengths, error message |
+==========================================================*/
+
+
+/*==========================================================
+  EXECUTION FLOW (CALL CHAIN) - ASSIGNMENT 7
+============================================================
+  main()
+   ├─ pipe(p1)      p1[0]=3, p1[1]=4   (typical fd numbers)
+   ├─ pipe(p2)      p2[0]=5, p2[1]=6
+   ├─ fork() ════════════════════════════════════════════════════
+   │
+   │  PARENT (fork() > 0)                    CHILD (fork() == 0)
+   │  ├─ close(p1[0])  won't read p1         ├─ close(p1[1])  won't write p1
+   │  ├─ close(p2[1])  won't write p2        ├─ close(p2[0])  won't read p2
+   │  ├─ printf "Enter file name"            ├─ read(p1[0], fname) ── blocks until parent writes
+   │  ├─ scanf fname                         │
+   │  ├─ write(p1[1], fname) ═══ p1 ════════►├─ (unblocks, fname received)
+   │  ├─ read(p2[0], buf) ── blocks          ├─ fopen(fname, "r")
+   │  │                                      │    ├─ NULL → strcpy(buf,"File not found!")
+   │  │                                      │    └─ ok   → fread(buf) → buf[n]='\0' → fclose
+   │  ├─ (unblocks) ◄════════════ p2 ════════├─ write(p2[1], buf)
+   │  ├─ printf buf                          └─ return 0 → child exits ✖
+   │  ├─ wait(NULL) ── reaps child
+   │  └─ return 0
+
+  Short chain: main → pipe(p1) → pipe(p2) → fork → {parent: close×2 → scanf → write(p1) → read(p2) → printf → wait} ‖ {child: close×2 → read(p1) → fopen → fread → fclose → write(p2) → exit}
+==========================================================*/
+
+
+/*==========================================================
+  DRY RUN - ASSIGNMENT 7
+============================================================
+  Suppose notes.txt contains:
+  Operating Systems
+  Lab 7
+
+  | Step | Parent | Pipe p1 | Pipe p2 | Child |
+  |---|---|---|---|---|
+  | 1 | pipe, pipe, fork | empty | empty | created |
+  | 2 | closes p1[0], p2[1] | | | closes p1[1], p2[0] |
+  | 3 | prints prompt, waits for keyboard | | | blocked in read(p1[0]) |
+  | 4 | user types notes.txt; write(p1[1]) | notes.txt\0 | | |
+  | 5 | blocked in read(p2[0]) | → consumed | | reads notes.txt |
+  | 6 | | | | fopen OK, fread 24 bytes |
+  | 7 | | | Operating Systems\nLab 7\n\0 | write(p2[1]), returns, exits |
+  | 8 | read returns, prints contents | | → consumed | (zombie briefly) |
+  | 9 | wait(NULL) reaps child, exits | | | gone |
+
+  Output:
+  Enter file name: notes.txt
+
+  File contents received by parent:
+  Operating Systems
+  Lab 7
+
+  With a wrong name (abc.txt):
+  Enter file name: abc.txt
+
+  File contents received by parent:
+  File not found!
+==========================================================*/

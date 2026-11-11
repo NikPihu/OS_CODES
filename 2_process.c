@@ -142,3 +142,104 @@ int main() {
   ------------------------------
   Repeatedly compare neighbours and swap if out of order. After pass *i*, the largest *i+1* elements are in their final place at the end. Time O(n²), space O(1).
 ==========================================================*/
+
+
+/*==========================================================
+  FUNCTIONS & SYSTEM CALLS - ASSIGNMENT 2
+============================================================
+  | Function | Header | Prototype | Returns | Used for |
+  |---|---|---|---|---|
+  | fork | <unistd.h> | pid_t fork(void); | child PID / 0 / −1 | Create child |
+  | getpid | <unistd.h> | pid_t getpid(void); | own PID | Print identity |
+  | getppid | <unistd.h> | pid_t getppid(void); | parent's PID | Show parent / adoption |
+  | sleep | <unistd.h> | unsigned sleep(unsigned sec); | 0 when done | Create timing for zombie/orphan |
+  | wait | <sys/wait.h> | pid_t wait(int *status); | dead child's PID | Block + reap child |
+  | exit | <stdlib.h> | void exit(int status); | never returns | End process |
+  | printf/scanf | <stdio.h> | — | — | I/O |
+  | sort | user-defined | void sort(int arr[], int n) | — | Bubble sort |
+  | print | user-defined | void print(int arr[], int n) | — | Print array |
+
+  pid_t is just a signed integer type used for process IDs.
+==========================================================*/
+
+
+/*==========================================================
+  EXECUTION FLOW (CALL CHAIN) - ASSIGNMENT 2
+============================================================
+  Function call chain:
+  main()
+   ├─ scanf → n, arr[]
+   ├─ fork()  ═════════════════ splits into 2 processes ═════════════════
+   │
+   │  CHILD (pid == 0)                      PARENT (pid > 0)
+   │  ├─ printf(getpid, getppid)            ├─ printf(getpid, pid)
+   │  ├─ sort(arr,n) ──► returns            ├─ sort(arr,n) ──► returns
+   │  ├─ print(arr,n) ─► returns            ├─ print(arr,n) ─► returns
+   │  └─ exit(0)  ✖ child ends ───────────► ├─ wait(NULL)   ◄── blocks until child ends, reaps it
+   │                                        ├─ printf("Child finished")
+   │                                        │
+   │                                        ├─ ZOMBIE DEMO: fork() ════════════════╗
+   │                                        │    parent (z>0)               child (z==0)
+   │                                        │    ├─ printf("...ZOMBIE")      ├─ printf("exiting")
+   │                                        │    ├─ sleep(2) ◄─ child is     └─ exit(0) ✖
+   │                                        │    │             ZOMBIE here
+   │                                        │    ├─ wait(NULL) → reaped
+   │                                        │    └─ printf("Reaped")
+   │                                        │
+   │                                        └─ ORPHAN DEMO: fork() ════════════════╗
+   │                                             parent (o>0)               child (o==0)
+   │                                             ├─ printf("ORPHAN")        ├─ sleep(2) … parent dies meanwhile
+   │                                             └─ exit(0) ✖               ├─ printf(getppid → 1 / subreaper)
+   │                                                                        └─ exit(0) ✖
+
+  Short chain to memorise:
+  main → fork → {child: sort → print → exit} ‖ {parent: sort → print → wait → fork(zombie) → sleep → wait → fork(orphan) → exit}
+
+  Process tree over time:
+  t=0      P(100)
+  t=1      P(100) ── C1(101)                 sort children
+  t=2      P(100)                            C1 reaped by wait
+  t=3      P(100) ── Z(102) <defunct>        zombie for 2 seconds
+  t=5      P(100)                            Z reaped by wait
+  t=6      P(100) ── O(103)
+  t=6.1    init(1) ── O(103)                 P exited → O adopted
+  t=8      O prints PPID=1, exits; init reaps it
+==========================================================*/
+
+
+/*==========================================================
+  DRY RUN - ASSIGNMENT 2
+============================================================
+  Input: n = 5, array 4 1 3 5 2. Assume parent PID = 1000.
+
+  Enter number of elements: 5
+  Enter 5 integers: 4 1 3 5 2
+
+  [Parent] PID: 1000, Child PID: 1001
+  [Parent] Sorted array: 1 2 3 4 5
+
+  [Child] PID: 1001, PPID: 1000
+  [Child] Sorted array: 1 2 3 4 5
+  [Parent] Child finished.
+
+  --- Demonstrating Zombie State ---
+  [Parent] Sleeping 2s without wait(). Child 1002 is ZOMBIE.
+  [Zombie Child] PID 1002 exiting now...
+  [Parent] Reaped zombie child.            ← printed after 2 s
+
+  --- Demonstrating Orphan State ---
+  [Parent] Exiting now. Child 1003 becomes ORPHAN.
+  $                                         ← shell prompt returns (parent is dead)
+  [Orphan Child] PID: 1003, Adopted by Parent PID: 1   ← 2 s later
+
+  Bubble-sort trace on [4,1,3,5,2]:
+
+  | Pass i | Array after pass | Comment |
+  |---|---|---|
+  | 0 | 1 3 4 2 5 | 5 bubbled to the end |
+  | 1 | 1 3 2 4 5 | 4 in place |
+  | 2 | 1 2 3 4 5 | 3 in place |
+  | 3 | 1 2 3 4 5 | done |
+
+  Note: Order of [Parent] and [Child] lines can change between runs — it depends on the scheduler.
+==========================================================*/

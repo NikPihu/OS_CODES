@@ -133,3 +133,79 @@ done
 #     *)   commands ;;   # * matches anything → default branch
 # esac
 ############################################################
+
+
+############################################################
+# FUNCTIONS & SYSTEM CALLS - ASSIGNMENT 1
+############################################################
+# | Command | Purpose in this script |
+# |---|---|
+# | echo / echo -e | Print menu, messages, table header |
+# | read -p | Read menu choice and record fields |
+# | > | Create / empty address.txt |
+# | >> | Append a record |
+# | [ -s file ] | Check whether there is anything to show |
+# | cat | Print the whole file |
+# | grep -q | Check whether a name exists |
+# | grep -v | Copy every line *except* the matching one |
+# | mv | Rename temp.txt → address.txt (replace the old file) |
+# | exit 0 | Terminate the script with success status |
+############################################################
+
+
+############################################################
+# EXECUTION FLOW (CALL CHAIN) - ASSIGNMENT 1
+############################################################
+# START (bash reads the file top to bottom)
+#   │
+#   ├─ line 5: file="address.txt"
+#   │
+#   └─ line 7: while true ─────────────────────────────────────────────┐
+#         │                                                            │
+#         ├─ line 9 : echo menu                                        │
+#         ├─ line 10: read ch                                          │
+#         └─ line 12: case $ch in                                      │
+#               │                                                      │
+#               ├─ a|1 → [> file]            → "created"         ──────┤
+#               ├─ b|2 → [-s file]?                                    │
+#               │          ├─ yes → echo header → cat file       ──────┤
+#               │          └─ no  → "empty"                      ──────┤
+#               ├─ c|3 → read name,phone,city → echo >> file     ──────┤
+#               ├─ d|4 → read name → grep -q?                          │
+#               │          ├─ found → grep -v > temp → mv        ──────┤
+#               │          └─ not   → "not found"                ──────┤
+#               ├─ e|5 → read name → grep -q?                          │
+#               │          ├─ found → grep -v > temp → mv              │
+#               │          │          → read phone,city → echo >> ─────┤
+#               │          └─ not   → "not found"                ──────┤
+#               ├─ f|6 → "Exiting." → exit 0 ──► END                   │
+#               └─ *   → "Invalid choice."                       ──────┘
+#                                                 (back to top of loop)
+#
+# Delete / Modify trick — the data flow:
+# address.txt ──grep -v "^John "──► temp.txt ──mv──► address.txt
+# (all lines)    (drop John's line)  (everyone       (old file replaced)
+#                                     except John)
+############################################################
+
+
+############################################################
+# DRY RUN - ASSIGNMENT 1
+############################################################
+# | Step | Input | address.txt after the step | Screen |
+# |---|---|---|---|
+# | 1 | a | *(empty file)* | Address book created. |
+# | 2 | b | *(empty)* | Address book is empty. → -s is false |
+# | 3 | c, John, 111, Pune | John 111 Pune | Record inserted. |
+# | 4 | c, Mary, 222, Mumbai | John 111 Pune<br>Mary 222 Mumbai | Record inserted. |
+# | 5 | e, John, 999, Delhi | Mary 222 Mumbai<br>John 999 Delhi | Record modified. (John moved to the end) |
+# | 6 | d, Mary | John 999 Delhi | Record deleted. |
+# | 7 | d, Alex | John 999 Delhi | Record not found. |
+# | 8 | x | unchanged | Invalid choice. |
+# | 9 | f | unchanged | Exiting. → script ends |
+#
+# Detail of step 6 (grep view):
+# grep -q "^Mary " address.txt   → finds "Mary 222 Mumbai" → exit status 0 → then-branch
+# grep -v "^Mary " address.txt   → outputs "John 999 Delhi"  → written to temp.txt
+# mv temp.txt address.txt         → address.txt now has only John
+############################################################

@@ -141,3 +141,91 @@ int main() {
   3. Pretend to allocate: Available −= Request; Allocation[i] += Request; Need[i] −= Request.
   4. Run the safety algorithm. If safe → grant. If unsafe → roll back, Pi waits.
 ==========================================================*/
+
+
+/*==========================================================
+  FUNCTIONS & SYSTEM CALLS - ASSIGNMENT 5
+============================================================
+  | Function | Header | Purpose |
+  |---|---|---|
+  | printf | <stdio.h> | Prompts, Need matrix, result |
+  | scanf | <stdio.h> | Read p, r, matrices, vector |
+
+  The whole algorithm lives in main(); there are no other functions or system calls. The logic is the interesting part.
+==========================================================*/
+
+
+/*==========================================================
+  EXECUTION FLOW (CALL CHAIN) - ASSIGNMENT 5
+============================================================
+  main()
+   ├─ INPUT PHASE
+   │   ├─ scanf p, r
+   │   ├─ scanf alloc[p][r]
+   │   ├─ scanf max[p][r]
+   │   └─ scanf avail[r]
+   │
+   ├─ NEED PHASE
+   │   └─ for each i, j:  need[i][j] = max[i][j] − alloc[i][j]  → print
+   │
+   ├─ SAFETY PHASE  (repeat p rounds)
+   │   └─ for k = 0..p-1                       ← round
+   │        └─ for i = 0..p-1                  ← scan every process
+   │             └─ if !done[i]:
+   │                  ├─ possible = (need[i][j] ≤ avail[j] for all j)
+   │                  └─ if possible:
+   │                       ├─ avail += alloc[i]          (Pi finishes, releases)
+   │                       ├─ seq[count++] = i
+   │                       └─ done[i] = 1
+   │
+   └─ OUTPUT PHASE
+       ├─ count == p → "SAFE" + print seq
+       └─ else       → "UNSAFE"
+
+  Why p rounds? Each round marks at least one more process done if the state is safe. In the worst case one per round → p rounds are always enough.
+==========================================================*/
+
+
+/*==========================================================
+  DRY RUN - ASSIGNMENT 5
+============================================================
+  Input: p = 5, r = 3 (resources A B C)
+
+  | Process | Allocation (A B C) | Max (A B C) | Need = Max − Alloc |
+  |---|---|---|---|
+  | P0 | 0 1 0 | 7 5 3 | 7 4 3 |
+  | P1 | 2 0 0 | 3 2 2 | 1 2 2 |
+  | P2 | 3 0 2 | 9 0 2 | 6 0 0 |
+  | P3 | 2 1 1 | 2 2 2 | 0 1 1 |
+  | P4 | 0 0 2 | 4 3 3 | 4 3 1 |
+
+  Available = 3 3 2
+
+  Safety algorithm trace:
+
+  | Round k | i | Need[i] | avail before | Need ≤ avail? | avail after | seq |
+  |---|---|---|---|---|---|---|
+  | 0 | P0 | 7 4 3 | 3 3 2 | ✗ (7>3) | 3 3 2 | – |
+  | 0 | P1 | 1 2 2 | 3 3 2 | ✓ | 3+2, 3+0, 2+0 = 5 3 2 | P1 |
+  | 0 | P2 | 6 0 0 | 5 3 2 | ✗ (6>5) | 5 3 2 | P1 |
+  | 0 | P3 | 0 1 1 | 5 3 2 | ✓ | 7 4 3 | P1 P3 |
+  | 0 | P4 | 4 3 1 | 7 4 3 | ✓ | 7 4 5 | P1 P3 P4 |
+  | 1 | P0 | 7 4 3 | 7 4 5 | ✓ | 7 5 5 | P1 P3 P4 P0 |
+  | 1 | P2 | 6 0 0 | 7 5 5 | ✓ | 10 5 7 | P1 P3 P4 P0 P2 |
+  | 2–4 | — | all done, nothing changes | | | | |
+
+  count = 5 = p → SAFE. Final avail = 10 5 7 = total resources in the system (a good self-check: Available + sum of all Allocation).
+
+  Exact output:
+  Need Matrix:
+  7 4 3
+  1 2 2
+  6 0 0
+  0 1 1
+  4 3 1
+
+  System is in SAFE State.
+  Safe Sequence: < P1 P3 P4 P0 P2 >
+
+  Unsafe example: change Available to 0 0 0. No process has Need ≤ (0,0,0) except one with Need all zeros → none here → count = 0 → UNSAFE.
+==========================================================*/
