@@ -42,3 +42,60 @@ int main() {
     }
     return 0;
 }
+
+
+//compile
+// # Create a test file first:
+// echo "Operating Systems Lab: Full duplex IPC using ordinary pipes." > testfile.txt
+
+// # Compile and run:
+// gcc 7_pipes.c -o pipes
+// ./pipes
+
+//input
+// testfile.txt
+
+
+/*==========================================================
+  THEORY - ASSIGNMENT 7
+============================================================
+  B.1 What is a pipe?
+  -------------------
+  - A unidirectional byte channel in the kernel with two ends:
+    - fd[0] → read end
+    - fd[1] → write end
+    (Memory trick: 0 = input like stdin, 1 = output like stdout.)
+  - Data comes out in the same order it went in (FIFO). Kernel buffer is typically 64 KB on Linux.
+  - A pipe has no name, so only processes that inherit the fds (via fork) can use it → related processes only.
+
+  B.2 How fork makes a pipe usable
+  --------------------------------
+  After pipe(p1):              After fork():
+   Parent                       Parent              Child
+    p1[0] ─┐                     p1[0] ─┐  ┌─ p1[0]
+    p1[1] ─┼─► [kernel buffer]   p1[1] ─┼──┼─ p1[1]   ──► same kernel pipe
+                                         └──┘
+  Both processes now hold both ends. Each must close the ends it doesn't use.
+
+  B.3 Why close unused ends?
+  --------------------------
+  - EOF detection: read() returns 0 (EOF) only when all write ends are closed. If the reader still holds its own copy of the write end, it will never see EOF and may block forever.
+  - Clarity & resources: frees file descriptors and makes the direction explicit.
+  - SIGPIPE: writing to a pipe with no open read end kills the writer with SIGPIPE.
+
+  B.4 Full duplex needs two pipes
+  -------------------------------
+  A single pipe is one-way. If both processes read and wrote the same pipe, one might read back its own data. So:
+  - p1: parent → child (parent writes p1[1], child reads p1[0])
+  - p2: child → parent (child writes p2[1], parent reads p2[0])
+
+  B.5 Blocking rules
+  ------------------
+  | Situation | Result |
+  |---|---|
+  | read on empty pipe, writer still open | blocks |
+  | read on empty pipe, all writers closed | returns 0 (EOF) |
+  | write to full pipe | blocks |
+  | write with all readers closed | SIGPIPE / error EPIPE |
+  | Writes ≤ PIPE_BUF (4096 bytes) | atomic (not mixed with other writes) |
+==========================================================*/

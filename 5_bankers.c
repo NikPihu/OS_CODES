@@ -58,3 +58,86 @@ int main() {
 
     return 0;
 }
+
+
+// compile
+// gcc 5_bankers.c -o 5_bankers
+// ./5_bankers
+
+//input
+// 5
+// 3
+// 0 1 0
+// 2 0 0
+// 3 0 2
+// 2 1 1
+// 0 0 2
+// 7 5 3
+// 3 2 2
+// 9 0 2
+// 2 2 2
+// 4 3 3
+// 3 3 2
+// 1
+// 1
+// 1 0 2
+
+
+/*==========================================================
+  THEORY - ASSIGNMENT 5
+============================================================
+  B.1 Deadlock avoidance
+  ----------------------
+  Unlike prevention (Assignment 4), avoidance doesn't forbid any of the 4 conditions. Instead, before granting resources the OS checks: *"if I grant this, can every process still finish in some order?"* If yes → grant; if no → make the process wait.
+
+  B.2 Safe state and safe sequence
+  --------------------------------
+  - A safe sequence is an order <P_a, P_b, …> such that each process can get its remaining need from (currently available + what all earlier processes in the sequence will release when they finish).
+  - Safe state = at least one safe sequence exists → deadlock cannot happen.
+  - Unsafe state = no safe sequence → deadlock may happen (not guaranteed).
+
+  ┌──────────────────────────────┐
+  │          All states          │
+  │   ┌─────────────┐            │
+  │   │    Safe     │   Unsafe   │
+  │   └─────────────┘  ┌──────┐  │
+  │                    │Dead- │  │
+  │                    │lock  │  │
+  │                    └──────┘  │
+  └──────────────────────────────┘
+  Deadlock ⊂ Unsafe.  Safe ∩ Deadlock = ∅.
+
+  B.3 Why "Banker's"?
+  -------------------
+  A bank never lends out its cash in a way that leaves it unable to satisfy all its customers' maximum credit limits. Resources = cash, processes = customers, Max = credit limit.
+
+  B.4 Data structures (n = processes, m = resource types)
+  -------------------------------------------------------
+  | Name | Size | Meaning |
+  |---|---|---|
+  | Available[m] | vector | free instances of each resource |
+  | Max[n][m] | matrix | maximum demand of each process |
+  | Allocation[n][m] | matrix | currently held |
+  | Need[n][m] | matrix | Need = Max − Allocation (still may request) |
+
+  B.5 Safety algorithm (textbook form)
+  ------------------------------------
+  1. Work = Available;   Finish[i] = false for all i
+  2. Find i such that  Finish[i] == false  AND  Need[i] <= Work   (for every resource)
+        If no such i → go to step 4
+  3. Work = Work + Allocation[i];  Finish[i] = true;  append Pi to sequence;  go to step 2
+  4. If Finish[i] == true for all i → SAFE, else UNSAFE
+  Why Work += Allocation[i]? We *pretend* Pi gets its Need, runs to completion, and then returns everything it holds. Its Allocation goes back to the pool.
+
+  Complexity: O(m × n²).
+
+  Note: Our program uses avail directly as Work and done as Finish.
+
+  B.6 Resource-request algorithm (theory only — not in our code)
+  --------------------------------------------------------------
+  When Pi requests Request[i]:
+  1. If Request > Need[i] → error (exceeded its max claim).
+  2. If Request > Available → Pi must wait.
+  3. Pretend to allocate: Available −= Request; Allocation[i] += Request; Need[i] −= Request.
+  4. Run the safety algorithm. If safe → grant. If unsafe → roll back, Pi waits.
+==========================================================*/
