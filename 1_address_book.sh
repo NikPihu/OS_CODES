@@ -56,6 +56,8 @@ done
 # chmod +x 1_address_book.sh
 # ./1_address_book.sh
 
+# bash 1_address_book.sh
+
 
 ############################################################
 # THEORY - ASSIGNMENT 1
